@@ -5,49 +5,58 @@
 void Evaluator::run(std::shared_ptr<StatementsNode> root) {
     if (!root) return;
 
-    // 1. "Compile" the tree into a linear list of instructions
-    // This fills our 'program' vector and 'rv' (Result Vector) indices
+    // 1. Flatten the AST into a list of instructions
+    // This fills 'program', 'rv', and 'varMap'
     root->flatten(program, rv, varMap);
 
-    // 2. Start the iterative execution loop
+    // 2. Execute the instruction list
     execute();
 }
 
 void Evaluator::execute() {
-    // This is the Fetch-Decode-Execute loop from your notes
-    for (size_t pc = 0; pc < program.size(); ++pc) {
-        // FETCH
-        Line& instr = program[pc];
+    // Accumulator to simulate CPU execution
+    double acc = 0.0;
 
-        // DECODE & EXECUTE
-        // We look up values in 'rv' using the indices stored in the instruction
+    // Fetch-Decode-Execute loop
+    for (size_t pc = 0; pc < program.size(); ++pc) {
+        Line &instr = program[pc];
+
         switch (instr.op) {
-            case '+':
-                rv[instr.resIdx] = rv[instr.leftIdx] + rv[instr.rightIdx];
+            case OpCode::LOAD:
+                acc = rv[instr.operandIdx];
                 break;
-            case '-':
-                rv[instr.resIdx] = rv[instr.leftIdx] - rv[instr.rightIdx];
+
+            case OpCode::ADD:
+                acc += rv[instr.operandIdx];
                 break;
-            case '*':
-                rv[instr.resIdx] = rv[instr.leftIdx] * rv[instr.rightIdx];
+
+            case OpCode::SUB:
+                acc -= rv[instr.operandIdx];
                 break;
-            case '/':
-                if (rv[instr.rightIdx] == 0) throw std::runtime_error("Division by zero");
-                rv[instr.resIdx] = rv[instr.leftIdx] / rv[instr.rightIdx];
+
+            case OpCode::MUL:
+                acc *= rv[instr.operandIdx];
                 break;
-            case '=':
-                // Assignment: copy value from right operand index to target index
-                rv[instr.resIdx] = rv[instr.leftIdx];
+
+            case OpCode::DIV:
+                if (rv[instr.operandIdx] == 0)
+                    throw std::runtime_error("Division by zero");
+                acc /= rv[instr.operandIdx];
                 break;
-            case 'P':
-                // Print: output the value stored at the leftIdx
-                std::cout << rv[instr.leftIdx] << std::endl;
+
+            case OpCode::STORE:
+                rv[instr.resultIdx] = acc;
                 break;
+
+            case OpCode::PRINT:
+                std::cout << rv[instr.operandIdx] << std::endl;
+                break;
+
             default:
-                throw std::runtime_error("Unknown operation in instruction stream");
+                throw std::runtime_error("Unknown instruction in program");
         }
-        
-        // Optional: Print the state of rv for every step to show the teacher
-        // std::cout << "[Step " << pc << "] op: " << instr.op << " result: " << rv[instr.resIdx] << std::endl;
+
+        // Optional: Debug output for each step
+        // std::cout << "[Step " << pc << "] acc=" << acc << std::endl;
     }
 }

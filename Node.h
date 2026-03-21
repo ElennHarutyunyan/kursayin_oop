@@ -6,35 +6,36 @@
 #include <vector>
 #include <unordered_map>
 
-// Represents a single step of the calculation (the 'string' expression step)
+// --- Low-level instruction set ---
+enum class OpCode { LOAD, ADD, SUB, MUL, DIV, STORE, PRINT };
+
+// Each instruction references operand/result indices in memory (rv)
 struct Line {
-    char op;            // '+', '-', '*', '/', '=', 'P' (Print)
-    int leftIdx;        // Index of the left operand in the result vector (rv)
-    int rightIdx;       // Index of the right operand in the result vector (rv)
-    int resIdx;         // Index where the result will be stored in the result vector (rv)
+    OpCode op;
+    int operandIdx;  // Index in rv for LOAD/ADD/SUB/MUL/DIV/PRINT
+    int resultIdx;   // Used only for STORE
 };
 
+// --- Abstract Node ---
 struct Node {
     virtual ~Node() = default;
-    
-    // Every node now 'flattens' itself into the program vector
-    // Returns the index in 'rv' where this node's value is stored
     virtual int flatten(std::vector<Line>& program, 
                         std::vector<double>& rv, 
                         std::unordered_map<std::string, int>& varMap) = 0;
 };
 
+// --- Number Node ---
 struct NumberNode : Node {
     double value;
     NumberNode(double val) : value(val) {}
     
     int flatten(std::vector<Line>& program, std::vector<double>& rv, std::unordered_map<std::string, int>& varMap) override {
-        // Numbers are stored directly into the result vector
         rv.push_back(value);
-        return rv.size() - 1; // Return the position of this number
+        return rv.size() - 1;
     }
 };
 
+// --- Binary Operation Node ---
 struct BinOpNode : Node {
     std::shared_ptr<Node> left;
     std::shared_ptr<Node> right;
@@ -42,29 +43,34 @@ struct BinOpNode : Node {
     
     BinOpNode(std::shared_ptr<Node> l, char o, std::shared_ptr<Node> r)
         : left(l), op(o), right(r) {}
-        
+    
     int flatten(std::vector<Line>& program, std::vector<double>& rv, std::unordered_map<std::string, int>& varMap) override {
-        // 1. Get indices for children (Post-order traversal)
         int lIdx = left->flatten(program, rv, varMap);
         int rIdx = right->flatten(program, rv, varMap);
-        
-        // 2. Reserve a spot for this operation's result
         rv.push_back(0.0); 
         int myIdx = rv.size() - 1;
-        
-        // 3. Add the instruction to the program
-        program.push_back({op, lIdx, rIdx, myIdx});
-        
+
+        // Generate LOAD + OP + STORE sequence
+        program.push_back({OpCode::LOAD, lIdx, -1});
+        switch (op) {
+            case '+': program.push_back({OpCode::ADD, rIdx, -1}); break;
+            case '-': program.push_back({OpCode::SUB, rIdx, -1}); break;
+            case '*': program.push_back({OpCode::MUL, rIdx, -1}); break;
+            case '/': program.push_back({OpCode::DIV, rIdx, -1}); break;
+            default:
+                throw std::runtime_error("Unknown binary operator");
+        }
+        program.push_back({OpCode::STORE, -1, myIdx});
         return myIdx;
     }
 };
 
+// --- Variable Node ---
 struct VarNode : Node {
     std::string name;
     VarNode(const std::string &n) : name(n) {}
     
     int flatten(std::vector<Line>& program, std::vector<double>& rv, std::unordered_map<std::string, int>& varMap) override {
-        // If the variable doesn't exist in our memory yet, initialize it
         if (varMap.find(name) == varMap.end()) {
             rv.push_back(0.0);
             varMap[name] = rv.size() - 1;
@@ -73,6 +79,7 @@ struct VarNode : Node {
     }
 };
 
+// --- Assignment Node ---
 struct AssignNode : Node {
     std::string name;
     std::shared_ptr<Node> value;
@@ -80,33 +87,35 @@ struct AssignNode : Node {
     
     int flatten(std::vector<Line>& program, std::vector<double>& rv, std::unordered_map<std::string, int>& varMap) override {
         int valIdx = value->flatten(program, rv, varMap);
-        
-        // Ensure the variable name has a reserved index
+
         if (varMap.find(name) == varMap.end()) {
             rv.push_back(0.0);
             varMap[name] = rv.size() - 1;
         }
-        
+
         int varIdx = varMap[name];
-        // Add assignment instruction: rv[varIdx] = rv[valIdx]
-        program.push_back({'=', valIdx, -1, varIdx});
-        
+
+        // Assignment: LOAD value -> STORE variable
+        program.push_back({OpCode::LOAD, valIdx, -1});
+        program.push_back({OpCode::STORE, -1, varIdx});
+
         return varIdx;
     }
 };
 
+// --- Print Node ---
 struct PrintNode : Node {
     std::shared_ptr<Node> expr;
     PrintNode(std::shared_ptr<Node> e) : expr(e) {}
     
     int flatten(std::vector<Line>& program, std::vector<double>& rv, std::unordered_map<std::string, int>& varMap) override {
         int exprIdx = expr->flatten(program, rv, varMap);
-        // Special instruction for printing
-        program.push_back({'P', exprIdx, -1, -1});
+        program.push_back({OpCode::PRINT, exprIdx, -1});
         return -1;
     }
 };
 
+// --- Statements Node ---
 struct StatementsNode : Node {
     std::vector<std::shared_ptr<Node>> statements;
     
