@@ -5,16 +5,14 @@
 void Evaluator::run(std::shared_ptr<StatementsNode> root) {
     if (!root) return;
 
-    // 1. Flatten the AST into a list of instructions
-    // This fills 'program', 'rv', and 'varMap'
+    // Flatten AST into instructions and memory (rv)
     root->flatten(program, rv, varMap);
 
-    // 2. Execute the instruction list
+    // Execute instruction list
     execute();
 }
 
 void Evaluator::execute() {
-    // Accumulator to simulate CPU execution
     double acc = 0.0;
 
     // Fetch-Decode-Execute loop
@@ -56,7 +54,7 @@ void Evaluator::execute() {
                 throw std::runtime_error("Unknown instruction in program");
         }
 
-        // Optional: Debug output for each step
+        // Optional: Debug
         // std::cout << "[Step " << pc << "] acc=" << acc << std::endl;
     }
 }

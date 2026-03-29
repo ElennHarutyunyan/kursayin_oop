@@ -5,9 +5,18 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include <stdexcept>
 
 // --- Low-level instruction set ---
-enum class OpCode { LOAD, ADD, SUB, MUL, DIV, STORE, PRINT };
+enum class OpCode {
+    LOAD,
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+    STORE,
+    PRINT
+};
 
 // Each instruction references operand/result indices in memory (rv)
 struct Line {

@@ -2,9 +2,8 @@
 #define PARSER_H
 
 #include "Lexer.h"
-#include "Node.h"  // <--- CRITICAL: This fixes the 'Node' not declared errors
+#include "Node.h"
 #include <memory>
-#include <vector>
 
 class Parser {
 private:
