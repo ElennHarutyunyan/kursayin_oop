@@ -11,14 +11,12 @@ void Lexer::advance() {
 }
 
 void Lexer::skipWhitespace() {
-    while (currentChar && isspace(currentChar)) {
-        advance();
-    }
+    while (currentChar && isspace(currentChar)) advance();
 }
 
 Token Lexer::number() {
     std::string result;
-    while (currentChar && isdigit(currentChar)) {
+    while (currentChar && (isdigit(currentChar) || currentChar == '.')) {
         result += currentChar;
         advance();
     }
@@ -31,23 +29,17 @@ Token Lexer::identifier() {
         result += currentChar;
         advance();
     }
-
-    if (result == "print")
-        return Token(TokenType::Print, result);
-
+    if (result == "print") return Token(TokenType::Print, result);
+    if (result == "if")    return Token(TokenType::If, result);
+    if (result == "while") return Token(TokenType::While, result);
     return Token(TokenType::Identifier, result);
 }
 
 Token Lexer::getNextToken() {
     while (currentChar != '\0') {
-        if (isspace(currentChar)) {
-            skipWhitespace();
-            continue;
-        }
-
+        if (isspace(currentChar)) { skipWhitespace(); continue; }
         if (isdigit(currentChar)) return number();
         if (isalpha(currentChar) || currentChar == '_') return identifier();
-
         switch (currentChar) {
             case '+': advance(); return Token(TokenType::Plus);
             case '-': advance(); return Token(TokenType::Minus);
@@ -57,10 +49,10 @@ Token Lexer::getNextToken() {
             case ';': advance(); return Token(TokenType::Semicolon);
             case '(': advance(); return Token(TokenType::LParen);
             case ')': advance(); return Token(TokenType::RParen);
+            case '{': advance(); return Token(TokenType::LBrace);
+            case '}': advance(); return Token(TokenType::RBrace);
         }
-
         advance();
     }
-
     return Token(TokenType::EndOfFile);
 }

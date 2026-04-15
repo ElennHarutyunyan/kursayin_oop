@@ -1,60 +1,41 @@
 #include "Evaluator.h"
+#include "Node.h"
+#include "SymbolTable.h"
 #include <iostream>
-#include <stdexcept>
 
 void Evaluator::run(std::shared_ptr<StatementsNode> root) {
     if (!root) return;
-
-    // Flatten AST into instructions and memory (rv)
-    root->flatten(program, rv, varMap);
-
-    // Execute instruction list
+    
+    program.clear(); // Clear old instructions
+    // Use the class-level symbolTable member
+    root->flatten(program, symbolTable); 
+    
     execute();
 }
 
 void Evaluator::execute() {
-    double acc = 0.0;
+    int pc = 0;
+    std::vector<double> stack; // Stack can be local to execute
 
-    // Fetch-Decode-Execute loop
-    for (size_t pc = 0; pc < program.size(); ++pc) {
-        Line &instr = program[pc];
-
+    while (pc < (int)program.size()) {
+        const auto& instr = program[pc];
         switch (instr.op) {
-            case OpCode::LOAD:
-                acc = rv[instr.operandIdx];
-                break;
-
-            case OpCode::ADD:
-                acc += rv[instr.operandIdx];
-                break;
-
-            case OpCode::SUB:
-                acc -= rv[instr.operandIdx];
-                break;
-
-            case OpCode::MUL:
-                acc *= rv[instr.operandIdx];
-                break;
-
-            case OpCode::DIV:
-                if (rv[instr.operandIdx] == 0)
-                    throw std::runtime_error("Division by zero");
-                acc /= rv[instr.operandIdx];
-                break;
-
-            case OpCode::STORE:
-                rv[instr.resultIdx] = acc;
-                break;
-
-            case OpCode::PRINT:
-                std::cout << rv[instr.operandIdx] << std::endl;
-                break;
-
-            default:
-                throw std::runtime_error("Unknown instruction in program");
+            case LI:    stack.push_back(instr.val); pc++; break;
+            case LOAD:  stack.push_back(memory[instr.address]); pc++; break;
+            case STORE: 
+                if(!stack.empty()){ 
+                    memory[instr.address] = stack.back(); 
+                    stack.pop_back(); 
+                }
+                pc++; break;
+            // ... rest of your ADD, SUB, etc. ...
+            case JZ: 
+                if (!stack.empty()) {
+                    double val = stack.back();
+                    stack.pop_back();
+                    if (val == 0) pc = instr.address;
+                    else pc++;
+                } else pc++; break;
         }
-
-        // Optional: Debug
-        // std::cout << "[Step " << pc << "] acc=" << acc << std::endl;
     }
 }
