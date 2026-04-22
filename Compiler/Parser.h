@@ -11,6 +11,8 @@ class Parser {
 private:
     std::vector<Token> tokens;
     size_t pos;
+    int loopDepth = 0;
+    int switchDepth = 0;
 
     // Helper functions
     Token peek() const;
@@ -18,14 +20,25 @@ private:
     Token advance();
     bool isAtEnd() const;
     bool check(TokenType type) const;
-    bool match(std::vector<TokenType> types);
+    bool match(const std::vector<TokenType>& types);
     Token consume(TokenType type, const std::string& message);
+    bool isTypeToken(TokenType type) const;
+
+    // Required project split points
+    std::unique_ptr<ASTNode> prog_parser();
+    std::unique_ptr<ASTNode> func_parser(const std::string& retType, const std::string& name);
+    std::vector<std::unique_ptr<ASTNode>> func_code();
 
     // Parsing methods
-    std::unique_ptr<ASTNode> declaration();
+    std::unique_ptr<ASTNode> declaration(const std::string& type, const std::string& name, bool isStatic = false, bool isGlobal = false);
     std::unique_ptr<ASTNode> statement();
+    std::unique_ptr<ASTNode> switchStatement();
+    std::unique_ptr<ASTNode> returnStatement();
+    std::unique_ptr<ASTNode> breakStatement();
+    std::unique_ptr<ASTNode> continueStatement();
     std::unique_ptr<ASTNode> ifStatement();
     std::unique_ptr<ASTNode> whileStatement();
+    std::unique_ptr<ASTNode> forStatement();
     std::vector<std::unique_ptr<ASTNode>> block();
     
     std::unique_ptr<ExprNode> expression();

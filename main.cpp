@@ -2,61 +2,63 @@
 #include <vector>
 #include <string>
 
-#include "Compiler/Lexer.h"
-#include "Compiler/Parser.h"
-#include "Compiler/CodeGenerator.h"
 #include "Compiler/SymbolTable.h"
-#include "Vm/VirtualMachine.h"
-#include "Vm/Memory.h"
+#include "src/backend/BackendPipeline.h"
+#include "src/frontend/FrontendPipeline.h"
+#include "src/linker/ExecutableFormat.h"
+#include "src/runtime/VmMonitor.h"
 
 int main() {
     try {
-        // 1. Մուտքային կոդ (Source Code)
-        // Կարող ես փոխել սա և թեստավորել տարբեր արտահայտություններ
-        std::string source = "x = 10 + 20; y = x + 5;";
-        std::cout << "Compiling source: " << source << std::endl;
+        std::string source =
+            "int g = 5; "
+            "int main() { "
+            "int acc = 0; "
+            "for(int i = 0; i < 4; i = i + 1) { "
+            "static int s = i + 1; "
+            "acc = acc + s; "
+            "} "
+            "g = g + 1; "
+            "acc = acc + g; "
+            "return acc; "
+            "}";
+        std::cout << "Compiling source: " << source << "\n";
 
-        // 2. Lexical Analysis (Tokens)
-        Lexer lexer(source);
-        auto tokens = lexer.tokenize();
+        // 1) Frontend: Parser -> AST
+        frontend::FrontendPipeline frontend;
+        auto frontendResult = frontend.compileToAst(source);
 
-        // 3. Parsing (AST)
-        Parser parser(tokens);
-        auto astRoot = parser.parse(); 
+        // 2) AST optimizer stage (placeholder hook for project requirements)
+        backend::AstOptimizer astOptimizer;
+        astOptimizer.optimize(frontendResult.ast);
 
-        // 4. Code Generation (RISC-V)
+        // 3) IR translation
         SymbolTable st;
-        // Նախապես ավելացնենք x և y փոփոխականները, որպեսզի Generator-ը գտնի դրանք
-        st.addSymbol("x", "int", SymbolType::Local);
-        st.addSymbol("y", "int", SymbolType::Local);
 
-        CodeGenerator gen(st);
-        for (auto& node : astRoot) {
-            gen.generate(node.get());
-        }
+        backend::BackendPipeline backend;
+        auto ir = backend.lowerToLogicalIr(frontendResult.ast, st);
 
-        std::vector<Instruction> program = gen.getResult();
-        program.push_back({OpCode::HALT, 0, 0, 0, 0}); // Միշտ ավելացրու HALT
+        // 4) IR optimizer stage (placeholder hook for project requirements)
+        backend::IrOptimizer irOptimizer;
+        irOptimizer.optimize(ir);
 
-        std::cout << "Generated " << program.size() << " instructions." << std::endl;
+        // 5) Final program image
+        std::vector<Instruction> program = ir.instructions;
+        program.push_back({OpCode::HALT, 0, 0, 0, 0});
 
-        // 5. Execution
-        Memory mem(65536);
-        VirtualMachine vm(mem);
-        
-        std::cout << "--- Executing Generated Code ---" << std::endl;
-        vm.run(program);
+        linker_stage::ToolchainLinker linker;
+        auto image = linker.linkToImage(program, ir.dataWords);
+        linker.writeExecutable(image, "a.out.exe");
 
-        // 6. Արդյունքների դամփ
-        vm.dumpRegisters();
-        
-        // Եթե CodeGenerator-ը x-ը պահել է a0-ում (x10), իսկ y-ը a1-ում (x11)
-        std::cout << "Final Result Check:" << std::endl;
-        std::cout << "x (a0): " << vm.getReg(10) << " (Expected 30)" << std::endl;
-        std::cout << "y (a1): " << vm.getReg(11) << " (Expected 35)" << std::endl;
+        // 6) VM Monitor runtime
+        runtime::VmMonitor monitor(65536);
+        std::cout << "--- Executing Generated Code ---\n";
+        monitor.run(program, ir.dataWords, static_cast<uint32_t>(ir.dataBaseAddress));
+        monitor.dumpRegisters();
+        std::cout << "return value (a0): " << monitor.readRegister(10) << " (expected 10)\n";
 
     } catch (const std::exception& e) {
-        std::cerr << "Error during compilation/execution: " << e.what() << std::endl;
+        std::cerr << "Error during compilation/execution: " << e.what() << "\n";
         return 1;
     }
 

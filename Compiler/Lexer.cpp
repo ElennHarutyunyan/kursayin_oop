@@ -18,6 +18,8 @@ Lexer::Lexer(const std::string& src) : source(src), pos(0), line(1), column(1) {
     keywords["char"] = TokenType::Char;
     keywords["void"] = TokenType::Void;
     keywords["return"] = TokenType::Return;
+    keywords["break"] = TokenType::Break;
+    keywords["continue"] = TokenType::Continue;
     keywords["static"] = TokenType::Static;
     keywords["class"] = TokenType::Class;
     keywords["struct"] = TokenType::Struct;

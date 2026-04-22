@@ -29,7 +29,7 @@ struct Instruction {
     uint8_t rs1; // Source Register 1
     uint8_t rs2; // Source Register 2
     int32_t imm; // Immediate value / Offset
-
+    
     Instruction(OpCode op = OpCode::HALT, uint8_t d = 0, uint8_t s1 = 0, uint8_t s2 = 0, int32_t i = 0)
         : opcode(op), rd(d), rs1(s1), rs2(s2), imm(i) {}
 };

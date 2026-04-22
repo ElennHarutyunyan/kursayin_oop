@@ -72,9 +72,10 @@ public:
     std::string type;
     std::string name;
     bool isStatic;
+    bool isGlobal;
     std::unique_ptr<ExprNode> initializer;
-    DeclarationNode(std::string t, std::string n, bool s = false, std::unique_ptr<ExprNode> init = nullptr)
-        : type(t), name(n), isStatic(s), initializer(std::move(init)) {}
+    DeclarationNode(std::string t, std::string n, bool s = false, bool g = false, std::unique_ptr<ExprNode> init = nullptr)
+        : type(t), name(n), isStatic(s), isGlobal(g), initializer(std::move(init)) {}
 };
 
 /** * ԱՎԵԼԱՑՎԱԾ Է: ReturnNode
@@ -84,6 +85,16 @@ class ReturnNode : public StmtNode {
 public:
     std::unique_ptr<ExprNode> expression;
     ReturnNode(std::unique_ptr<ExprNode> expr) : expression(std::move(expr)) {}
+};
+
+class BreakNode : public StmtNode {
+public:
+    BreakNode() = default;
+};
+
+class ContinueNode : public StmtNode {
+public:
+    ContinueNode() = default;
 };
 
 class IfNode : public StmtNode {
@@ -109,9 +120,16 @@ public:
 
 class SwitchNode : public StmtNode {
 public:
+    struct Section {
+        bool isDefault = false;
+        int caseValue = 0;
+        std::vector<std::unique_ptr<ASTNode>> statements;
+    };
+
     std::unique_ptr<ExprNode> condition;
     std::map<int, std::vector<std::unique_ptr<ASTNode>>> cases;
     std::vector<std::unique_ptr<ASTNode>> defaultCase;
+    std::vector<Section> orderedSections;
 };
 
 // --- High-level Structures ---
