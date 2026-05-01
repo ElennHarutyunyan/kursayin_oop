@@ -7,7 +7,7 @@
 // RISC-V հիմնական հրահանգների տիպերը
 enum class OpCode : uint8_t {
     // Arithmetic (R-type / I-type)
-    ADD, ADDI, SUB, MUL, DIV,
+    ADD, ADDI, SUB, MUL, DIV, MOD,
     AND, OR, XOR, SLL, SRL, // Shift Logical Left/Right
     
     // Memory (I-type / S-type)
@@ -19,6 +19,7 @@ enum class OpCode : uint8_t {
     JAL, JALR,          // Jump and Link (for functions & switch)
     
     // System
+    PRINT,
     ECALL, // For Print or Exit
     HALT   // Custom instruction to stop VM
 };

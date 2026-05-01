@@ -10,9 +10,11 @@ enum class TokenType {
     If, Else, While, For, Do, Switch, Case, Default,
     Return, Break, Continue, Goto,
     Static, Extern, Const,
+    True, False,
     Class, Struct, Union, Enum,
     Public, Private, Protected,
     StaticCast, DynamicCast, ReinterpretCast, ConstCast,
+    Print,
     
     // Literals & Identifiers
     Identifier, Number, StringLiteral, CharLiteral,
@@ -23,6 +25,10 @@ enum class TokenType {
     Eq, Neq, Lt, Gt, Leq, Geq,         // == != < > <= >=
     And, Or, Bang,                     // && || !
     BitAnd, BitOr, BitXor, BitNot,     // & | ^ ~
+    ShiftLeft, ShiftRight,             // << >>
+    PlusAssign, MinusAssign, StarAssign, SlashAssign, PercentAssign,
+    XorAssign, AndAssign, OrAssign, ShiftLeftAssign, ShiftRightAssign,
+    Question,
     
     // Punctuation
     LParen, RParen,   // ( )

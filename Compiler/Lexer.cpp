@@ -21,6 +21,9 @@ Lexer::Lexer(const std::string& src) : source(src), pos(0), line(1), column(1) {
     keywords["break"] = TokenType::Break;
     keywords["continue"] = TokenType::Continue;
     keywords["static"] = TokenType::Static;
+    keywords["extern"] = TokenType::Extern;
+    keywords["true"] = TokenType::True;
+    keywords["false"] = TokenType::False;
     keywords["class"] = TokenType::Class;
     keywords["struct"] = TokenType::Struct;
     keywords["union"] = TokenType::Union;
@@ -30,6 +33,7 @@ Lexer::Lexer(const std::string& src) : source(src), pos(0), line(1), column(1) {
     keywords["static_cast"] = TokenType::StaticCast;
     keywords["dynamic_cast"] = TokenType::DynamicCast;
     keywords["goto"] = TokenType::Goto;
+    keywords["print"] = TokenType::Print;
 }
 
 char Lexer::peek() const {
@@ -102,10 +106,26 @@ std::vector<Token> Lexer::tokenize() {
         } else {
             advance();
             switch (c) {
-                case '+': tokens.push_back(Token(TokenType::Plus, "+", line, startCol)); break;
-                case '-': tokens.push_back(Token(TokenType::Minus, "-", line, startCol)); break;
-                case '*': tokens.push_back(Token(TokenType::Star, "*", line, startCol)); break;
-                case '/': tokens.push_back(Token(TokenType::Slash, "/", line, startCol)); break;
+                case '+':
+                    if (peek() == '=') { advance(); tokens.push_back(Token(TokenType::PlusAssign, "+=", line, startCol)); }
+                    else tokens.push_back(Token(TokenType::Plus, "+", line, startCol));
+                    break;
+                case '-':
+                    if (peek() == '=') { advance(); tokens.push_back(Token(TokenType::MinusAssign, "-=", line, startCol)); }
+                    else tokens.push_back(Token(TokenType::Minus, "-", line, startCol));
+                    break;
+                case '*':
+                    if (peek() == '=') { advance(); tokens.push_back(Token(TokenType::StarAssign, "*=", line, startCol)); }
+                    else tokens.push_back(Token(TokenType::Star, "*", line, startCol));
+                    break;
+                case '/':
+                    if (peek() == '=') { advance(); tokens.push_back(Token(TokenType::SlashAssign, "/=", line, startCol)); }
+                    else tokens.push_back(Token(TokenType::Slash, "/", line, startCol));
+                    break;
+                case '%':
+                    if (peek() == '=') { advance(); tokens.push_back(Token(TokenType::PercentAssign, "%=", line, startCol)); }
+                    else tokens.push_back(Token(TokenType::Percent, "%", line, startCol));
+                    break;
                 case '=':
                     if (peek() == '=') { advance(); tokens.push_back(Token(TokenType::Eq, "==", line, startCol)); }
                     else tokens.push_back(Token(TokenType::Assign, "=", line, startCol));
@@ -116,12 +136,37 @@ std::vector<Token> Lexer::tokenize() {
                     break;
                 case '<':
                     if (peek() == '=') { advance(); tokens.push_back(Token(TokenType::Leq, "<=", line, startCol)); }
+                    else if (peek() == '<') {
+                        advance();
+                        if (peek() == '=') { advance(); tokens.push_back(Token(TokenType::ShiftLeftAssign, "<<=", line, startCol)); }
+                        else tokens.push_back(Token(TokenType::ShiftLeft, "<<", line, startCol));
+                    }
                     else tokens.push_back(Token(TokenType::Lt, "<", line, startCol));
                     break;
                 case '>':
                     if (peek() == '=') { advance(); tokens.push_back(Token(TokenType::Geq, ">=", line, startCol)); }
+                    else if (peek() == '>') {
+                        advance();
+                        if (peek() == '=') { advance(); tokens.push_back(Token(TokenType::ShiftRightAssign, ">>=", line, startCol)); }
+                        else tokens.push_back(Token(TokenType::ShiftRight, ">>", line, startCol));
+                    }
                     else tokens.push_back(Token(TokenType::Gt, ">", line, startCol));
                     break;
+                case '&':
+                    if (peek() == '&') { advance(); tokens.push_back(Token(TokenType::And, "&&", line, startCol)); }
+                    else if (peek() == '=') { advance(); tokens.push_back(Token(TokenType::AndAssign, "&=", line, startCol)); }
+                    else tokens.push_back(Token(TokenType::BitAnd, "&", line, startCol));
+                    break;
+                case '|':
+                    if (peek() == '|') { advance(); tokens.push_back(Token(TokenType::Or, "||", line, startCol)); }
+                    else if (peek() == '=') { advance(); tokens.push_back(Token(TokenType::OrAssign, "|=", line, startCol)); }
+                    else tokens.push_back(Token(TokenType::BitOr, "|", line, startCol));
+                    break;
+                case '^':
+                    if (peek() == '=') { advance(); tokens.push_back(Token(TokenType::XorAssign, "^=", line, startCol)); }
+                    else tokens.push_back(Token(TokenType::BitXor, "^", line, startCol));
+                    break;
+                case '~': tokens.push_back(Token(TokenType::BitNot, "~", line, startCol)); break;
                 case '(': tokens.push_back(Token(TokenType::LParen, "(", line, startCol)); break;
                 case ')': tokens.push_back(Token(TokenType::RParen, ")", line, startCol)); break;
                 case '{': tokens.push_back(Token(TokenType::LBrace, "{", line, startCol)); break;
@@ -130,6 +175,7 @@ std::vector<Token> Lexer::tokenize() {
                 case ']': tokens.push_back(Token(TokenType::RBracket, "]", line, startCol)); break;
                 case ';': tokens.push_back(Token(TokenType::Semicolon, ";", line, startCol)); break;
                 case ',': tokens.push_back(Token(TokenType::Comma, ",", line, startCol)); break;
+                case '?': tokens.push_back(Token(TokenType::Question, "?", line, startCol)); break;
                 case ':':
                     if (peek() == ':') { advance(); tokens.push_back(Token(TokenType::DoubleColon, "::", line, startCol)); }
                     else tokens.push_back(Token(TokenType::Colon, ":", line, startCol));

@@ -37,6 +37,23 @@ public:
         : op(o), left(std::move(l)), right(std::move(r)) {}
 };
 
+class UnaryOpNode : public ExprNode {
+public:
+    std::string op;
+    std::unique_ptr<ExprNode> operand;
+    UnaryOpNode(std::string o, std::unique_ptr<ExprNode> expr)
+        : op(o), operand(std::move(expr)) {}
+};
+
+class TernaryNode : public ExprNode {
+public:
+    std::unique_ptr<ExprNode> condition;
+    std::unique_ptr<ExprNode> trueExpr;
+    std::unique_ptr<ExprNode> falseExpr;
+    TernaryNode(std::unique_ptr<ExprNode> c, std::unique_ptr<ExprNode> t, std::unique_ptr<ExprNode> f)
+        : condition(std::move(c)), trueExpr(std::move(t)), falseExpr(std::move(f)) {}
+};
+
 class CastNode : public ExprNode {
 public:
     std::string castType; 
@@ -97,6 +114,12 @@ public:
     ContinueNode() = default;
 };
 
+class PrintNode : public StmtNode {
+public:
+    std::unique_ptr<ExprNode> expression;
+    PrintNode(std::unique_ptr<ExprNode> expr) : expression(std::move(expr)) {}
+};
+
 class IfNode : public StmtNode {
 public:
     std::unique_ptr<ExprNode> condition;
@@ -108,6 +131,12 @@ class WhileNode : public StmtNode {
 public:
     std::unique_ptr<ExprNode> condition;
     std::vector<std::unique_ptr<ASTNode>> body;
+};
+
+class DoWhileNode : public StmtNode {
+public:
+    std::vector<std::unique_ptr<ASTNode>> body;
+    std::unique_ptr<ExprNode> condition;
 };
 
 class ForNode : public StmtNode {

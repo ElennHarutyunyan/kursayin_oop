@@ -110,6 +110,25 @@ void CodeGenerator::generate(ASTNode* node) {
         }
         breakPatchStack.pop_back();
         continueTargetStack.pop_back();
+    } else if (auto doWhileNode = dynamic_cast<DoWhileNode*>(node)) {
+        int32_t bodyLabel = static_cast<int32_t>(instructions.size());
+        breakPatchStack.push_back({});
+        continueTargetStack.push_back(bodyLabel);
+
+        for (const auto& stmt : doWhileNode->body) {
+            generate(stmt.get());
+        }
+        int32_t conditionLabel = static_cast<int32_t>(instructions.size());
+        continueTargetStack.back() = conditionLabel;
+        generateExpression(doWhileNode->condition.get(), 5);
+        instructions.push_back({OpCode::BNE, 0, 5, 0, bodyLabel - static_cast<int32_t>(instructions.size())});
+
+        int32_t exitLabel = static_cast<int32_t>(instructions.size());
+        for (size_t patchIdx : breakPatchStack.back()) {
+            patchJump(patchIdx, exitLabel);
+        }
+        breakPatchStack.pop_back();
+        continueTargetStack.pop_back();
     } else if (auto forNode = dynamic_cast<ForNode*>(node)) {
         if (forNode->init) {
             generate(forNode->init.get());
@@ -161,6 +180,9 @@ void CodeGenerator::generate(ASTNode* node) {
             throw std::runtime_error("Continue used outside loop");
         }
         instructions.push_back({OpCode::JAL, 0, 0, 0, continueTargetStack.back()});
+    } else if (auto printNode = dynamic_cast<PrintNode*>(node)) {
+        generateExpression(printNode->expression.get(), 10);
+        instructions.push_back({OpCode::PRINT, 0, 10, 0, 0});
     }
     else if (auto sw = dynamic_cast<SwitchNode*>(node)) {
         struct SectionRef {
@@ -299,6 +321,37 @@ void CodeGenerator::generateExpression(ExprNode* expr, int rd) {
             instructions.push_back({OpCode::ADD, (uint8_t)rd, (uint8_t)rd, (uint8_t)(rd + 1), 0});
         } else if (bin->op == "-") {
             instructions.push_back({OpCode::SUB, (uint8_t)rd, (uint8_t)rd, (uint8_t)(rd + 1), 0});
+        } else if (bin->op == "*") {
+            instructions.push_back({OpCode::MUL, (uint8_t)rd, (uint8_t)rd, (uint8_t)(rd + 1), 0});
+        } else if (bin->op == "/") {
+            instructions.push_back({OpCode::DIV, (uint8_t)rd, (uint8_t)rd, (uint8_t)(rd + 1), 0});
+        } else if (bin->op == "%") {
+            instructions.push_back({OpCode::MOD, (uint8_t)rd, (uint8_t)rd, (uint8_t)(rd + 1), 0});
+        } else if (bin->op == "&") {
+            instructions.push_back({OpCode::AND, (uint8_t)rd, (uint8_t)rd, (uint8_t)(rd + 1), 0});
+        } else if (bin->op == "|") {
+            instructions.push_back({OpCode::OR, (uint8_t)rd, (uint8_t)rd, (uint8_t)(rd + 1), 0});
+        } else if (bin->op == "^") {
+            instructions.push_back({OpCode::XOR, (uint8_t)rd, (uint8_t)rd, (uint8_t)(rd + 1), 0});
+        } else if (bin->op == "<<") {
+            instructions.push_back({OpCode::SLL, (uint8_t)rd, (uint8_t)rd, (uint8_t)(rd + 1), 0});
+        } else if (bin->op == ">>") {
+            instructions.push_back({OpCode::SRL, (uint8_t)rd, (uint8_t)rd, (uint8_t)(rd + 1), 0});
+        } else if (bin->op == "&&" || bin->op == "||") {
+            size_t branchIdx = instructions.size();
+            if (bin->op == "&&") {
+                instructions.push_back({OpCode::BEQ, 0, (uint8_t)rd, 0, 0});
+            } else {
+                instructions.push_back({OpCode::BNE, 0, (uint8_t)rd, 0, 0});
+            }
+            instructions.push_back({OpCode::ADDI, (uint8_t)rd, 0, 0, 0});
+            size_t jumpIdx = instructions.size();
+            instructions.push_back({OpCode::JAL, 0, 0, 0, 0});
+            int32_t trueLabel = static_cast<int32_t>(instructions.size());
+            patchBranch(branchIdx, trueLabel);
+            instructions.push_back({OpCode::ADDI, (uint8_t)rd, 0, 0, 1});
+            int32_t endLabel = static_cast<int32_t>(instructions.size());
+            patchJump(jumpIdx, endLabel);
         } else if (bin->op == "<" || bin->op == ">" || bin->op == "<=" ||
                    bin->op == ">=" || bin->op == "==" || bin->op == "!=") {
             size_t branchIdx = instructions.size();
@@ -327,6 +380,37 @@ void CodeGenerator::generateExpression(ExprNode* expr, int rd) {
         } else {
             throw std::runtime_error("Unsupported binary operator: " + bin->op);
         }
+    } else if (auto unary = dynamic_cast<UnaryOpNode*>(expr)) {
+        generateExpression(unary->operand.get(), rd);
+        if (unary->op == "-") {
+            instructions.push_back({OpCode::SUB, (uint8_t)rd, 0, (uint8_t)rd, 0});
+        } else if (unary->op == "!") {
+            size_t branchIdx = instructions.size();
+            instructions.push_back({OpCode::BEQ, 0, (uint8_t)rd, 0, 0});
+            instructions.push_back({OpCode::ADDI, (uint8_t)rd, 0, 0, 0});
+            size_t jumpIdx = instructions.size();
+            instructions.push_back({OpCode::JAL, 0, 0, 0, 0});
+            int32_t trueLabel = static_cast<int32_t>(instructions.size());
+            patchBranch(branchIdx, trueLabel);
+            instructions.push_back({OpCode::ADDI, (uint8_t)rd, 0, 0, 1});
+            int32_t endLabel = static_cast<int32_t>(instructions.size());
+            patchJump(jumpIdx, endLabel);
+        } else if (unary->op == "~") {
+            instructions.push_back({OpCode::SUB, (uint8_t)rd, 0, (uint8_t)rd, 0});
+            instructions.push_back({OpCode::ADDI, (uint8_t)rd, (uint8_t)rd, 0, -1});
+        }
+    } else if (auto ternary = dynamic_cast<TernaryNode*>(expr)) {
+        generateExpression(ternary->condition.get(), rd);
+        size_t falseBranchIdx = instructions.size();
+        instructions.push_back({OpCode::BEQ, 0, (uint8_t)rd, 0, 0});
+        generateExpression(ternary->trueExpr.get(), rd);
+        size_t jumpEndIdx = instructions.size();
+        instructions.push_back({OpCode::JAL, 0, 0, 0, 0});
+        int32_t falseLabel = static_cast<int32_t>(instructions.size());
+        patchBranch(falseBranchIdx, falseLabel);
+        generateExpression(ternary->falseExpr.get(), rd);
+        int32_t endLabel = static_cast<int32_t>(instructions.size());
+        patchJump(jumpEndIdx, endLabel);
     } else if (auto var = dynamic_cast<VariableNode*>(expr)) {
         Symbol s = symbolTable.lookup(var->name);
         if (s.stype == SymbolType::Global || s.stype == SymbolType::Static) {

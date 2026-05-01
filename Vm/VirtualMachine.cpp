@@ -7,16 +7,37 @@ VirtualMachine::VirtualMachine(Memory& mem) : registers{0}, pc(0), memory(mem), 
 void VirtualMachine::executeInstruction(const Instruction& instr) {
     switch (instr.opcode) {
         case OpCode::ADD:
-            registers[instr.rd] = (registers[instr.rs1] + registers[instr.rs2]) & 0xFFFF;
+            registers[instr.rd] = registers[instr.rs1] + registers[instr.rs2];
             break;
         case OpCode::ADDI:
-            registers[instr.rd] = (registers[instr.rs1] + instr.imm) & 0xFFFF;
+            registers[instr.rd] = registers[instr.rs1] + instr.imm;
             break;
         case OpCode::SUB:
-            registers[instr.rd] = (registers[instr.rs1] - registers[instr.rs2]) & 0xFFFF;
+            registers[instr.rd] = registers[instr.rs1] - registers[instr.rs2];
+            break;
+        case OpCode::MUL:
+            registers[instr.rd] = registers[instr.rs1] * registers[instr.rs2];
+            break;
+        case OpCode::DIV:
+            registers[instr.rd] = (registers[instr.rs2] == 0) ? 0 : (registers[instr.rs1] / registers[instr.rs2]);
+            break;
+        case OpCode::MOD:
+            registers[instr.rd] = (registers[instr.rs2] == 0) ? 0 : (registers[instr.rs1] % registers[instr.rs2]);
+            break;
+        case OpCode::AND:
+            registers[instr.rd] = registers[instr.rs1] & registers[instr.rs2];
+            break;
+        case OpCode::OR:
+            registers[instr.rd] = registers[instr.rs1] | registers[instr.rs2];
+            break;
+        case OpCode::XOR:
+            registers[instr.rd] = registers[instr.rs1] ^ registers[instr.rs2];
             break;
         case OpCode::SLL:
-            registers[instr.rd] = (registers[instr.rs1] << instr.imm) & 0xFFFF;
+            registers[instr.rd] = registers[instr.rs1] << (registers[instr.rs2] & 0x1F);
+            break;
+        case OpCode::SRL:
+            registers[instr.rd] = static_cast<uint32_t>(registers[instr.rs1]) >> (registers[instr.rs2] & 0x1F);
             break;
         case OpCode::LW:
             registers[instr.rd] = memory.read32(registers[instr.rs1] + instr.imm);
@@ -54,6 +75,9 @@ void VirtualMachine::executeInstruction(const Instruction& instr) {
             break;
         case OpCode::HALT:
             running = false;
+            break;
+        case OpCode::PRINT:
+            std::cout << registers[instr.rs1] << "\n";
             break;
         default:
             running = false;

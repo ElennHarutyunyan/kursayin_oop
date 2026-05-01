@@ -74,6 +74,7 @@ std::unique_ptr<ASTNode> Parser::prog_parser() {
     }
 
     bool isStatic = match({TokenType::Static});
+    bool isExtern = match({TokenType::Extern});
     if (!isTypeToken(peek().type)) {
         throw std::runtime_error("Top-level declaration must start with a type");
     }
@@ -83,7 +84,7 @@ std::unique_ptr<ASTNode> Parser::prog_parser() {
     if (check(TokenType::LParen)) {
         return func_parser(type, name);
     }
-    return declaration(type, name, isStatic, true);
+    return declaration(type, name, isStatic && !isExtern, true);
 }
 
 std::unique_ptr<ASTNode> Parser::func_parser(const std::string& retType, const std::string& name) {
@@ -106,7 +107,10 @@ std::unique_ptr<ASTNode> Parser::func_parser(const std::string& retType, const s
         }
     }
     consume(TokenType::RParen, "Expected )");
-
+    if (check(TokenType::Semicolon)) {
+        advance();
+        return func;
+    }
     func->body = func_code();
     return func;
 }
@@ -139,6 +143,10 @@ std::unique_ptr<ASTNode> Parser::statement() {
         advance();
         return whileStatement();
     }
+    if (check(TokenType::Do)) {
+        advance();
+        return doWhileStatement();
+    }
     if (check(TokenType::For)) {
         advance();
         return forStatement();
@@ -158,6 +166,10 @@ std::unique_ptr<ASTNode> Parser::statement() {
     if (check(TokenType::Continue)) {
         advance();
         return continueStatement();
+    }
+    if (check(TokenType::Print)) {
+        advance();
+        return printStatement();
     }
     if (check(TokenType::Static)) {
         advance();
@@ -262,7 +274,28 @@ std::unique_ptr<ASTNode> Parser::whileStatement() {
     node->condition = expression();
     consume(TokenType::RParen, "Expected )");
     loopDepth++;
-    node->body = block();
+    if (check(TokenType::LBrace)) {
+        node->body = block();
+    } else {
+        node->body.push_back(statement());
+    }
+    loopDepth--;
+    return node;
+}
+
+std::unique_ptr<ASTNode> Parser::doWhileStatement() {
+    auto node = std::make_unique<DoWhileNode>();
+    loopDepth++;
+    if (check(TokenType::LBrace)) {
+        node->body = block();
+    } else {
+        node->body.push_back(statement());
+    }
+    consume(TokenType::While, "Expected while after do body");
+    consume(TokenType::LParen, "Expected ( after while");
+    node->condition = expression();
+    consume(TokenType::RParen, "Expected ) after do-while condition");
+    consume(TokenType::Semicolon, "Expected ; after do-while");
     loopDepth--;
     return node;
 }
@@ -321,15 +354,90 @@ std::unique_ptr<ExprNode> Parser::expression() {
 }
 
 std::unique_ptr<ExprNode> Parser::assignment() {
-    auto lhs = equality();
-    if (match({TokenType::Assign})) {
+    auto lhs = ternary();
+    if (match({TokenType::Assign, TokenType::PlusAssign, TokenType::MinusAssign, TokenType::StarAssign,
+               TokenType::SlashAssign, TokenType::PercentAssign, TokenType::XorAssign, TokenType::AndAssign,
+               TokenType::OrAssign, TokenType::ShiftLeftAssign, TokenType::ShiftRightAssign})) {
+        Token opToken = previous();
         auto value = assignment();
         if (auto var = dynamic_cast<VariableNode*>(lhs.get())) {
-            return std::make_unique<BinaryOpNode>("=", std::move(lhs), std::move(value));
+            if (opToken.type == TokenType::Assign) {
+                return std::make_unique<BinaryOpNode>("=", std::move(lhs), std::move(value));
+            }
+            std::string baseOp;
+            if (opToken.type == TokenType::PlusAssign) baseOp = "+";
+            else if (opToken.type == TokenType::MinusAssign) baseOp = "-";
+            else if (opToken.type == TokenType::StarAssign) baseOp = "*";
+            else if (opToken.type == TokenType::SlashAssign) baseOp = "/";
+            else if (opToken.type == TokenType::PercentAssign) baseOp = "%";
+            else if (opToken.type == TokenType::XorAssign) baseOp = "^";
+            else if (opToken.type == TokenType::AndAssign) baseOp = "&";
+            else if (opToken.type == TokenType::OrAssign) baseOp = "|";
+            else if (opToken.type == TokenType::ShiftLeftAssign) baseOp = "<<";
+            else if (opToken.type == TokenType::ShiftRightAssign) baseOp = ">>";
+            auto lhsCopy = std::make_unique<VariableNode>(var->name);
+            auto combined = std::make_unique<BinaryOpNode>(baseOp, std::move(lhsCopy), std::move(value));
+            return std::make_unique<BinaryOpNode>("=", std::move(lhs), std::move(combined));
         }
         throw std::runtime_error("Invalid assignment target");
     }
     return lhs;
+}
+
+std::unique_ptr<ExprNode> Parser::ternary() {
+    auto cond = logicalOr();
+    if (match({TokenType::Question})) {
+        auto trueExpr = expression();
+        consume(TokenType::Colon, "Expected : in ternary expression");
+        auto falseExpr = expression();
+        return std::make_unique<TernaryNode>(std::move(cond), std::move(trueExpr), std::move(falseExpr));
+    }
+    return cond;
+}
+
+std::unique_ptr<ExprNode> Parser::logicalOr() {
+    auto expr = logicalAnd();
+    while (match({TokenType::Or})) {
+        auto right = logicalAnd();
+        expr = std::make_unique<BinaryOpNode>("||", std::move(expr), std::move(right));
+    }
+    return expr;
+}
+
+std::unique_ptr<ExprNode> Parser::logicalAnd() {
+    auto expr = bitwiseOr();
+    while (match({TokenType::And})) {
+        auto right = bitwiseOr();
+        expr = std::make_unique<BinaryOpNode>("&&", std::move(expr), std::move(right));
+    }
+    return expr;
+}
+
+std::unique_ptr<ExprNode> Parser::bitwiseOr() {
+    auto expr = bitwiseXor();
+    while (match({TokenType::BitOr})) {
+        auto right = bitwiseXor();
+        expr = std::make_unique<BinaryOpNode>("|", std::move(expr), std::move(right));
+    }
+    return expr;
+}
+
+std::unique_ptr<ExprNode> Parser::bitwiseXor() {
+    auto expr = bitwiseAnd();
+    while (match({TokenType::BitXor})) {
+        auto right = bitwiseAnd();
+        expr = std::make_unique<BinaryOpNode>("^", std::move(expr), std::move(right));
+    }
+    return expr;
+}
+
+std::unique_ptr<ExprNode> Parser::bitwiseAnd() {
+    auto expr = equality();
+    while (match({TokenType::BitAnd})) {
+        auto right = equality();
+        expr = std::make_unique<BinaryOpNode>("&", std::move(expr), std::move(right));
+    }
+    return expr;
 }
 
 std::unique_ptr<ExprNode> Parser::equality() {
@@ -343,8 +451,18 @@ std::unique_ptr<ExprNode> Parser::equality() {
 }
 
 std::unique_ptr<ExprNode> Parser::comparison() {
-    auto expr = term();
+    auto expr = shift();
     while (match({TokenType::Lt, TokenType::Leq, TokenType::Gt, TokenType::Geq})) {
+        std::string op = previous().value;
+        auto right = shift();
+        expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
+    }
+    return expr;
+}
+
+std::unique_ptr<ExprNode> Parser::shift() {
+    auto expr = term();
+    while (match({TokenType::ShiftLeft, TokenType::ShiftRight})) {
         std::string op = previous().value;
         auto right = term();
         expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
@@ -363,18 +481,32 @@ std::unique_ptr<ExprNode> Parser::term() {
 }
 
 std::unique_ptr<ExprNode> Parser::factor() {
-    auto expr = primary();
-    while (match({TokenType::Star, TokenType::Slash})) {
+    auto expr = unary();
+    while (match({TokenType::Star, TokenType::Slash, TokenType::Percent})) {
         std::string op = previous().value;
-        auto right = primary();
+        auto right = unary();
         expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
     }
     return expr;
 }
 
+std::unique_ptr<ExprNode> Parser::unary() {
+    if (match({TokenType::Minus, TokenType::Bang, TokenType::BitNot})) {
+        std::string op = previous().value;
+        return std::make_unique<UnaryOpNode>(op, unary());
+    }
+    return primary();
+}
+
 std::unique_ptr<ExprNode> Parser::primary() {
     if (match({TokenType::Number})) {
         return std::make_unique<IntLiteralNode>(std::stoi(previous().value));
+    }
+    if (match({TokenType::True})) {
+        return std::make_unique<IntLiteralNode>(1);
+    }
+    if (match({TokenType::False})) {
+        return std::make_unique<IntLiteralNode>(0);
     }
     if (match({TokenType::Identifier})) {
         return std::make_unique<VariableNode>(previous().value);
@@ -385,4 +517,12 @@ std::unique_ptr<ExprNode> Parser::primary() {
         return expr;
     }
     throw std::runtime_error("Expected expression");
+}
+
+std::unique_ptr<ASTNode> Parser::printStatement() {
+    consume(TokenType::LParen, "Expected ( after print");
+    auto expr = expression();
+    consume(TokenType::RParen, "Expected ) after print expression");
+    consume(TokenType::Semicolon, "Expected ; after print");
+    return std::make_unique<PrintNode>(std::move(expr));
 }
