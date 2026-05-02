@@ -10,6 +10,7 @@ enum class TokenType {
     If, Else, While, For, Do, Switch, Case, Default,
     Return, Break, Continue, Goto,
     Static, Extern, Const,
+    Inline,
     True, False,
     Class, Struct, Union, Enum,
     Public, Private, Protected,

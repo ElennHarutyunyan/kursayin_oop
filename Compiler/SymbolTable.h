@@ -39,6 +39,7 @@ public:
     Symbol lookup(const std::string& name);
     
     bool existsInCurrentScope(const std::string& name);
+    void resetLocalOffsets();
     int getRegister(const std::string& name) {
         if (table.find(name) != table.end()) {
             return table[name].regIndex; // Ենթադրենք Symbol-ը ունի regIndex դաշտ

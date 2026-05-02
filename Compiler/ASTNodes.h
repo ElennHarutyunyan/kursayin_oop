@@ -28,6 +28,13 @@ public:
     VariableNode(const std::string& n) : name(n) {}
 };
 
+class FunctionCallNode : public ExprNode {
+public:
+    std::string callee;
+    std::vector<std::unique_ptr<ExprNode>> args;
+    FunctionCallNode(std::string fn) : callee(std::move(fn)) {}
+};
+
 class BinaryOpNode : public ExprNode {
 public:
     std::string op;
@@ -90,9 +97,10 @@ public:
     std::string name;
     bool isStatic;
     bool isGlobal;
+    bool isExtern;
     std::unique_ptr<ExprNode> initializer;
-    DeclarationNode(std::string t, std::string n, bool s = false, bool g = false, std::unique_ptr<ExprNode> init = nullptr)
-        : type(t), name(n), isStatic(s), isGlobal(g), initializer(std::move(init)) {}
+    DeclarationNode(std::string t, std::string n, bool s = false, bool g = false, bool e = false, std::unique_ptr<ExprNode> init = nullptr)
+        : type(t), name(n), isStatic(s), isGlobal(g), isExtern(e), initializer(std::move(init)) {}
 };
 
 /** * ԱՎԵԼԱՑՎԱԾ Է: ReturnNode

@@ -22,6 +22,7 @@ Lexer::Lexer(const std::string& src) : source(src), pos(0), line(1), column(1) {
     keywords["continue"] = TokenType::Continue;
     keywords["static"] = TokenType::Static;
     keywords["extern"] = TokenType::Extern;
+    keywords["inline"] = TokenType::Inline;
     keywords["true"] = TokenType::True;
     keywords["false"] = TokenType::False;
     keywords["class"] = TokenType::Class;

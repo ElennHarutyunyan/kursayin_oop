@@ -30,7 +30,7 @@ private:
     std::vector<std::unique_ptr<ASTNode>> func_code();
 
     // Parsing methods
-    std::unique_ptr<ASTNode> declaration(const std::string& type, const std::string& name, bool isStatic = false, bool isGlobal = false);
+    std::unique_ptr<ASTNode> declaration(const std::string& type, const std::string& name, bool isStatic = false, bool isGlobal = false, bool isExtern = false);
     std::unique_ptr<ASTNode> statement();
     std::unique_ptr<ASTNode> switchStatement();
     std::unique_ptr<ASTNode> returnStatement();

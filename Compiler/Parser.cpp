@@ -73,6 +73,8 @@ std::unique_ptr<ASTNode> Parser::prog_parser() {
         return node;
     }
 
+    bool isInline = match({TokenType::Inline});
+    (void)isInline;
     bool isStatic = match({TokenType::Static});
     bool isExtern = match({TokenType::Extern});
     if (!isTypeToken(peek().type)) {
@@ -84,7 +86,7 @@ std::unique_ptr<ASTNode> Parser::prog_parser() {
     if (check(TokenType::LParen)) {
         return func_parser(type, name);
     }
-    return declaration(type, name, isStatic && !isExtern, true);
+    return declaration(type, name, isStatic && !isExtern, true, isExtern);
 }
 
 std::unique_ptr<ASTNode> Parser::func_parser(const std::string& retType, const std::string& name) {
@@ -125,13 +127,13 @@ std::vector<std::unique_ptr<ASTNode>> Parser::func_code() {
     return stmts;
 }
 
-std::unique_ptr<ASTNode> Parser::declaration(const std::string& type, const std::string& name, bool isStatic, bool isGlobal) {
+std::unique_ptr<ASTNode> Parser::declaration(const std::string& type, const std::string& name, bool isStatic, bool isGlobal, bool isExtern) {
     std::unique_ptr<ExprNode> init = nullptr;
     if (match({TokenType::Assign})) {
         init = expression();
     }
     consume(TokenType::Semicolon, "Expected ; after declaration");
-    return std::make_unique<DeclarationNode>(type, name, isStatic, isGlobal, std::move(init));
+    return std::make_unique<DeclarationNode>(type, name, isStatic, isGlobal, isExtern, std::move(init));
 }
 
 std::unique_ptr<ASTNode> Parser::statement() {
@@ -175,13 +177,22 @@ std::unique_ptr<ASTNode> Parser::statement() {
         advance();
         std::string type = consume(TokenType::Int, "Expected type after static").value;
         std::string name = consume(TokenType::Identifier, "Expected name").value;
-        return declaration(type, name, true);
+        return declaration(type, name, true, false, false);
+    }
+    if (check(TokenType::Inline)) {
+        advance();
+    }
+    if (check(TokenType::Extern)) {
+        advance();
+        std::string type = consume(TokenType::Int, "Expected type after extern").value;
+        std::string name = consume(TokenType::Identifier, "Expected identifier").value;
+        return declaration(type, name, false, false, true);
     }
     if (check(TokenType::Int) || check(TokenType::Void) || check(TokenType::Float) ||
         check(TokenType::Double) || check(TokenType::Char)) {
         std::string type = advance().value;
         std::string name = consume(TokenType::Identifier, "Expected identifier").value;
-        return declaration(type, name, false);
+        return declaration(type, name, false, false, false);
     }
 
     auto expr = expression();
@@ -313,7 +324,7 @@ std::unique_ptr<ASTNode> Parser::forStatement() {
             if (match({TokenType::Assign})) {
                 initExpr = expression();
             }
-            node->init = std::make_unique<DeclarationNode>(type, name, false, false, std::move(initExpr));
+            node->init = std::make_unique<DeclarationNode>(type, name, false, false, false, std::move(initExpr));
             consume(TokenType::Semicolon, "Expected ; after for-init declaration");
         } else {
             node->init = expression();
@@ -509,7 +520,18 @@ std::unique_ptr<ExprNode> Parser::primary() {
         return std::make_unique<IntLiteralNode>(0);
     }
     if (match({TokenType::Identifier})) {
-        return std::make_unique<VariableNode>(previous().value);
+        std::string name = previous().value;
+        if (match({TokenType::LParen})) {
+            auto call = std::make_unique<FunctionCallNode>(name);
+            if (!check(TokenType::RParen)) {
+                do {
+                    call->args.push_back(expression());
+                } while (match({TokenType::Comma}));
+            }
+            consume(TokenType::RParen, "Expected ) after function call arguments");
+            return call;
+        }
+        return std::make_unique<VariableNode>(name);
     }
     if (match({TokenType::LParen})) {
         auto expr = expression();

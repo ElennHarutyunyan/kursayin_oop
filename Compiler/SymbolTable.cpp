@@ -47,3 +47,7 @@ Symbol SymbolTable::lookup(const std::string& name) {
 bool SymbolTable::existsInCurrentScope(const std::string& name) {
     return scopes.back().find(name) != scopes.back().end();
 }
+
+void SymbolTable::resetLocalOffsets() {
+    currentStackOffset = 8; // reserve 0: saved ra, 4: saved fp
+}

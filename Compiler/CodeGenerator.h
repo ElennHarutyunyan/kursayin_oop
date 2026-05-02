@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <map>
+#include <set>
 #include <vector>
 #include <string>
 #include "ASTNodes.h"
@@ -15,6 +16,7 @@ public:
 
     // Հիմնական մուտքի կետը
     void generate(ASTNode* node);
+    void finalize();
 
     // Վերադարձնում է գեներացված RISC-V հրահանգները
     std::vector<Instruction> getResult() const { return instructions; }
@@ -29,6 +31,13 @@ private:
     std::vector<std::vector<size_t>> breakPatchStack;
     std::vector<int32_t> continueTargetStack;
     std::map<const DeclarationNode*, int32_t> staticInitGuardAddressByDecl;
+    std::vector<FunctionNode*> pendingFunctions;
+    std::map<std::string, int32_t> functionLabels;
+    std::vector<std::pair<size_t, std::string>> pendingCalls;
+    std::set<std::string> externSymbols;
+    std::string currentFunction;
+    static constexpr int32_t kFrameSize = 256;
+    void emitFunctionEpilogueAndReturn();
 
     // Օժանդակ ֆունկցիա Expression-ների համար
     void generateExpression(ExprNode* expr, int targetReg);
