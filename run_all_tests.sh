@@ -20,6 +20,4 @@ passed=0
 
 while IFS='|' read -r file expected; do
   [[ -z "${file// }" ]] && continue
-  total=$((total + 1))
-<files/version1.3/run_all_tests.sh" [dos] 34L, 724C           1,1           Top
-
+  [[ "${file#\#}" != "$file" ]] && continue

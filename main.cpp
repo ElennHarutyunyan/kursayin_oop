@@ -11,6 +11,14 @@
 #include "src/runtime/VmMonitor.h"
 
 namespace {
+struct CliOptions {
+    bool quiet = false;
+    bool testMode = false;
+    int expectedReturn = 0;
+    std::string sourcePath;
+    std::string sourceList;
+};
+
 std::string readFileText(const std::string& path) {
     std::ifstream in(path);
     if (!in) {
@@ -33,40 +41,40 @@ std::string joinSources(const std::string& csvPaths) {
     }
     return merged;
 }
+
+CliOptions parseCli(int argc, char** argv) {
+    CliOptions opts;
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--source" && i + 1 < argc) {
+            opts.sourcePath = argv[++i];
+        } else if (arg == "--sources" && i + 1 < argc) {
+            opts.sourceList = argv[++i];
+        } else if (arg == "--quiet") {
+            opts.quiet = true;
+        } else if (arg == "--test" && i + 2 < argc) {
+            opts.testMode = true;
+            opts.sourcePath = argv[++i];
+            opts.expectedReturn = std::stoi(argv[++i]);
+            opts.quiet = true;
+        }
+    }
+    return opts;
+}
 }
 
 int main(int argc, char** argv) {
     try {
         std::string source;
-        bool quiet = false;
-        bool testMode = false;
-        int expectedReturn = 0;
-        std::string sourcePath;
-        std::string sourceList;
+        CliOptions opts = parseCli(argc, argv);
 
-        for (int i = 1; i < argc; ++i) {
-            std::string arg = argv[i];
-            if (arg == "--source" && i + 1 < argc) {
-                sourcePath = argv[++i];
-            } else if (arg == "--sources" && i + 1 < argc) {
-                sourceList = argv[++i];
-            } else if (arg == "--quiet") {
-                quiet = true;
-            } else if (arg == "--test" && i + 2 < argc) {
-                testMode = true;
-                sourcePath = argv[++i];
-                expectedReturn = std::stoi(argv[++i]);
-                quiet = true;
-            }
-        }
-
-        if (!sourceList.empty()) {
-            source = joinSources(sourceList);
-        } else if (!sourcePath.empty()) {
-            if (sourcePath.find(',') != std::string::npos) {
-                source = joinSources(sourcePath);
+        if (!opts.sourceList.empty()) {
+            source = joinSources(opts.sourceList);
+        } else if (!opts.sourcePath.empty()) {
+            if (opts.sourcePath.find(',') != std::string::npos) {
+                source = joinSources(opts.sourcePath);
             } else {
-                source = readFileText(sourcePath);
+                source = readFileText(opts.sourcePath);
             }
         } else {
             source =
@@ -83,7 +91,7 @@ int main(int argc, char** argv) {
             "}";
         }
 
-        if (!quiet) {
+        if (!opts.quiet) {
             std::cout << "Compiling source: " << source << "\n";
         }
 
@@ -115,22 +123,22 @@ int main(int argc, char** argv) {
 
         // 6) VM Monitor runtime
         runtime::VmMonitor monitor(65536);
-        if (!quiet) {
+        if (!opts.quiet) {
             std::cout << "--- Executing Generated Code ---\n";
         }
         monitor.run(program, ir.dataWords, static_cast<uint32_t>(ir.dataBaseAddress));
         int result = monitor.readRegister(10);
 
-        if (testMode) {
-            if (result != expectedReturn) {
-                std::cerr << "Test failed for " << sourcePath << ": got " << result
-                          << ", expected " << expectedReturn << "\n";
+        if (opts.testMode) {
+            if (result != opts.expectedReturn) {
+                std::cerr << "Test failed for " << opts.sourcePath << ": got " << result
+                          << ", expected " << opts.expectedReturn << "\n";
                 return 1;
             }
             return 0;
         }
 
-        if (!quiet) {
+        if (!opts.quiet) {
             monitor.dumpRegisters();
             std::cout << "return value (a0): " << result << "\n";
         } else {

@@ -19,4 +19,16 @@ void VmMonitor::dumpRegisters() const {
     cpu.dumpRegisters();
 }
 
+CpuArchitecture VmMonitor::getArchitecture() const {
+    return cpu.getArchitecture();
+}
+
+uint32_t VmMonitor::allocateDynamic(uint32_t bytes) {
+    return memory.allocateDynamic(bytes);
+}
+
+uint32_t VmMonitor::allocateStatic(uint32_t bytes) {
+    return memory.allocateStatic(bytes);
+}
+
 }  // namespace runtime

@@ -58,7 +58,20 @@ std::vector<std::unique_ptr<ASTNode>> Parser::parse() {
 }
 
 std::unique_ptr<ASTNode> Parser::prog_parser() {
-    if (match({TokenType::Class, TokenType::Struct})) {
+    if (match({TokenType::Class, TokenType::Struct, TokenType::Union})) {
+        if (previous().type == TokenType::Union) {
+            auto un = std::make_unique<UnionNode>();
+            un->name = consume(TokenType::Identifier, "Expected union name").value;
+            consume(TokenType::LBrace, "Expected {");
+            while (!check(TokenType::RBrace) && !isAtEnd()) {
+                advance();
+            }
+            consume(TokenType::RBrace, "Expected }");
+            if (check(TokenType::Semicolon)) {
+                advance();
+            }
+            return un;
+        }
         auto node = std::make_unique<ClassNode>();
         node->isStruct = (previous().type == TokenType::Struct);
         node->name = consume(TokenType::Identifier, "Expected class/struct name").value;
@@ -100,6 +113,11 @@ std::unique_ptr<ASTNode> Parser::func_parser(const std::string& retType, const s
             throw std::runtime_error("Expected parameter type");
         }
         std::string pType = advance().value;
+        if (match({TokenType::BitAnd})) {
+            pType += "&";
+        } else if (match({TokenType::Star})) {
+            pType += "*";
+        }
         std::string pName = consume(TokenType::Identifier, "Expected parameter name").value;
         func->params.push_back({pType, pName});
         if (check(TokenType::Comma)) {
@@ -510,6 +528,27 @@ std::unique_ptr<ExprNode> Parser::unary() {
 }
 
 std::unique_ptr<ExprNode> Parser::primary() {
+    if (match({TokenType::StaticCast, TokenType::DynamicCast})) {
+        std::string castKind = previous().value;
+        consume(TokenType::Lt, "Expected < after cast keyword");
+        std::string target = consume(TokenType::Int, "Only int casts are supported").value;
+        consume(TokenType::Gt, "Expected > after cast type");
+        consume(TokenType::LParen, "Expected ( after cast target type");
+        auto expr = expression();
+        consume(TokenType::RParen, "Expected ) after cast expression");
+        return std::make_unique<CastNode>(castKind, target, std::move(expr));
+    }
+    if (match({TokenType::LParen})) {
+        if (check(TokenType::Int)) {
+            std::string target = advance().value;
+            consume(TokenType::RParen, "Expected ) after C-style cast type");
+            auto expr = unary();
+            return std::make_unique<CastNode>("c_style_cast", target, std::move(expr));
+        }
+        auto expr = expression();
+        consume(TokenType::RParen, "Expected ) after expression");
+        return expr;
+    }
     if (match({TokenType::Number})) {
         return std::make_unique<IntLiteralNode>(std::stoi(previous().value));
     }
@@ -532,11 +571,6 @@ std::unique_ptr<ExprNode> Parser::primary() {
             return call;
         }
         return std::make_unique<VariableNode>(name);
-    }
-    if (match({TokenType::LParen})) {
-        auto expr = expression();
-        consume(TokenType::RParen, "Expected ) after expression");
-        return expr;
     }
     throw std::runtime_error("Expected expression");
 }

@@ -411,6 +411,8 @@ void CodeGenerator::generateExpression(ExprNode* expr, int rd) {
         generateExpression(ternary->falseExpr.get(), rd);
         int32_t endLabel = static_cast<int32_t>(instructions.size());
         patchJump(jumpEndIdx, endLabel);
+    } else if (auto cast = dynamic_cast<CastNode*>(expr)) {
+        generateExpression(cast->expression.get(), rd);
     } else if (auto var = dynamic_cast<VariableNode*>(expr)) {
         Symbol s = symbolTable.lookup(var->name);
         if (s.stype == SymbolType::Global || s.stype == SymbolType::Static) {

@@ -20,6 +20,7 @@ $passed = 0
 Get-Content $Manifest | ForEach-Object {
     $line = $_.Trim()
     if ($line.Length -eq 0) { return }
+    if ($line.StartsWith("#")) { return }
 
     $parts = $line.Split("|")
     if ($parts.Count -ne 2) {
