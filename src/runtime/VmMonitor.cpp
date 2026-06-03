@@ -8,7 +8,9 @@ void VmMonitor::run(const std::vector<Instruction>& program, const std::vector<i
     for (size_t i = 0; i < dataWords.size(); ++i) {
         bus.write32(dataBaseAddress + static_cast<uint32_t>(i * sizeof(int32_t)), static_cast<uint32_t>(dataWords[i]));
     }
-    cpu.run(program);
+    cpu.loadProgram(program);
+    cpu.initializeEnvironment(dataBaseAddress, 0);
+    cpu.run();
 }
 
 int32_t VmMonitor::readRegister(int idx) const {

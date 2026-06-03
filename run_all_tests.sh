@@ -2,7 +2,7 @@
 set -euo pipefail
 
 COMPILER="${1:-./my_compiler}"
-MANIFEST="${2:-./tests/manifest.txt}"
+MANIFEST="${2:-./test/manifest.txt}"
 
 if [[ ! -x "$COMPILER" ]]; then
   echo "Compiler binary not found/executable: $COMPILER"
@@ -21,3 +21,18 @@ passed=0
 while IFS='|' read -r file expected; do
   [[ -z "${file// }" ]] && continue
   [[ "${file#\#}" != "$file" ]] && continue
+
+  total=$((total + 1))
+  if "$COMPILER" --test "$file" "$expected"; then
+    passed=$((passed + 1))
+    echo "[PASS] $file"
+  else
+    echo "[FAIL] $file (expected: $expected)"
+  fi
+done < "$MANIFEST"
+
+echo ""
+echo "Passed: $passed / $total"
+if [[ "$passed" -ne "$total" ]]; then
+  exit 1
+fi

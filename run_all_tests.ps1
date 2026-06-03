@@ -1,6 +1,6 @@
 param(
     [string]$CompilerExe = ".\my_compiler.exe",
-    [string]$Manifest = ".\tests\manifest.txt"
+    [string]$Manifest = ".\test\manifest.txt"
 )
 
 if (-not (Test-Path $CompilerExe)) {

@@ -1,14 +1,12 @@
-#ifndef ARCHITECTURE_H
-#define ARCHITECTURE_H
+#pragma once
 
 #include <cstdint>
 #include <string>
 
 struct CpuArchitecture {
     std::string name = "RISC5";
-    uint32_t xlenBits = 32;      // 32-bit registers
-    uint32_t registerCount = 32; // x0..x31
+    uint32_t xlenBits = 32;
+    uint32_t registerCount = 16;
+    uint32_t datapathBits = 16;
     bool littleEndian = true;
 };
-
-#endif

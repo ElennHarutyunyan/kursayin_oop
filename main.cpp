@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 
+#include "Compiler/ASTNodes.h"
 #include "Compiler/SymbolTable.h"
 #include "src/backend/BackendPipeline.h"
 #include "src/frontend/FrontendPipeline.h"
@@ -117,8 +118,15 @@ int main(int argc, char** argv) {
         std::vector<Instruction> program = ir.instructions;
         program.push_back({OpCode::HALT, 0, 0, 0, 0});
 
+        std::vector<linker_stage::DebugSymbol> debugSymbols;
+        for (const auto& node : frontendResult.ast) {
+            if (auto* fn = dynamic_cast<FunctionNode*>(node.get())) {
+                debugSymbols.push_back({fn->name, 0});
+            }
+        }
+
         linker_stage::ToolchainLinker linker;
-        auto image = linker.linkToImage(program, ir.dataWords);
+        auto image = linker.linkToImage(program, ir.dataWords, debugSymbols);
         linker.writeExecutable(image, "a.out.exe");
 
         // 6) VM Monitor runtime
